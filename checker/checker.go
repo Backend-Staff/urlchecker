@@ -68,8 +68,14 @@ func (c *Checker) checkOne(url string) Result {
 
 	for attempt < c.MaxRetries {
 		start := time.Now()
-		resp, _ := client.Get(url)
+		resp, err := client.Get(url)
 		elapsed := time.Since(start)
+
+		if err != nil {
+			lastErr = err
+			attempt++
+			continue
+		}
 
 		if resp.StatusCode >= 200 {
 			return Result{
@@ -81,14 +87,15 @@ func (c *Checker) checkOne(url string) Result {
 		}
 
 		lastErr = fmt.Errorf("bad response from %s", url)
-	}
+		attempt++
+	}   // <-- closes the for loop
 
 	return Result{
 		URL:      url,
 		Err:      lastErr,
 		Attempts: attempt,
 	}
-}
+}   // <-- closes the function
 
 func PrintReport(results []Result) {
 	fmt.Printf("%-55s %-8s %-10s %-s\n", "URL", "Status", "Time(ms)", "Info")
