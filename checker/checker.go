@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// Result holds the outcome of checking a single URL.
 type Result struct {
 	URL        string
 	StatusCode int
@@ -15,14 +16,16 @@ type Result struct {
 	Err        error
 }
 
+// Checker runs health checks against a list of URLs concurrently.
 type Checker struct {
 	Timeout    time.Duration
 	MaxRetries int
 
 	mu         sync.Mutex
-	resultsMap map[string]Result 
+	resultsMap map[string]Result // shared state, filled while checking
 }
 
+// New creates a Checker with the given timeout and retry count.
 func New(timeout time.Duration, maxRetries int) *Checker {
 	return &Checker{
 		Timeout:    timeout,
@@ -31,12 +34,13 @@ func New(timeout time.Duration, maxRetries int) *Checker {
 	}
 }
 
+// CheckAll checks every URL concurrently and returns all results.
 func (c *Checker) CheckAll(urls []string) []Result {
 	var wg sync.WaitGroup
 	ch := make(chan Result)
 
 	for _, url := range urls {
-		go func() {
+		go func(url string) {
 			wg.Add(1)
 			defer wg.Done()
 
@@ -45,7 +49,7 @@ func (c *Checker) CheckAll(urls []string) []Result {
 			c.resultsMap[res.URL] = res
 
 			ch <- res
-		}()
+		}(url)
 	}
 
 	wg.Wait()
@@ -87,16 +91,16 @@ func (c *Checker) checkOne(url string) Result {
 		}
 
 		lastErr = fmt.Errorf("bad response from %s", url)
-		attempt++
-	}   // <-- closes the for loop
+	}
 
 	return Result{
 		URL:      url,
 		Err:      lastErr,
 		Attempts: attempt,
 	}
-}   // <-- closes the function
+}
 
+// PrintReport prints a human readable table of results.
 func PrintReport(results []Result) {
 	fmt.Printf("%-55s %-8s %-10s %-s\n", "URL", "Status", "Time(ms)", "Info")
 	fmt.Println("--------------------------------------------------------------------------------")
